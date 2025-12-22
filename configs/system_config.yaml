@@ -7,3 +7,10 @@ system:
 runtime:
   fail_closed: true
   max_idea_tokens: 512
+
+idea_provider:
+  # type can be "local" or "openai"
+  type: local
+  openai:
+    api_key: "set-me-if-using-openai"
+    model: gpt-4o-mini
