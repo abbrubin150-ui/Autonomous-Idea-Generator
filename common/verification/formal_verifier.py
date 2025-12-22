@@ -27,7 +27,21 @@ def verify_exact1(flags: Dict[str, bool], allowed: Optional[List[str]] = None) -
 
 
 def verify_policy_invariants(policy: Dict) -> VerificationResult:
+    pol = policy.get("policy", {})
+    safety = policy.get("safety", {})
+
     # minimal guardrail: require audit record
-    if policy.get("policy", {}).get("require_audit_record", True) is not True:
+    if pol.get("require_audit_record", True) is not True:
         return VerificationResult(ok=False, reason="Policy violation: audit record must be required")
+
+    if pol.get("allow_untrusted_network", False) is not False:
+        return VerificationResult(ok=False, reason="Policy violation: untrusted network must be disallowed")
+
+    if pol.get("require_exactly_one_action", True) is not True:
+        return VerificationResult(ok=False, reason="Policy violation: EXACT1 must be enforced")
+
+    refuse = safety.get("refuse_categories")
+    if not isinstance(refuse, list) or not refuse:
+        return VerificationResult(ok=False, reason="Policy violation: safety.refuse_categories must be a non-empty list")
+
     return VerificationResult(ok=True, reason="Policy invariants OK")

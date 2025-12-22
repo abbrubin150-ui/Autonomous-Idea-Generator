@@ -3,6 +3,11 @@ policy:
   allow_untrusted_network: false
   require_audit_record: true
   require_exactly_one_action: true
+  allowed_actions:
+    - EXECUTE
+    - HOLD
+    - ESCALATE
+  default_action: EXECUTE
 
 safety:
   refuse_categories:
