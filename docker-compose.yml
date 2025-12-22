@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./logs:/app/logs
+      - ./configs:/app/configs:ro
+    environment:
+      - AIG_CONFIG_SYSTEM=/app/configs/system_config.yaml
+      - AIG_CONFIG_POLICY=/app/configs/policy_config.yaml

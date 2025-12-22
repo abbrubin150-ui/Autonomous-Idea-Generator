@@ -1,0 +1,1 @@
+"""S1: Backup & Tamper-Log manager (thin wrapper)."""\n\nfrom common.logging.tamper_evident_logger import TamperEvidentLog\n\n\ndef get_log(path: str) -> TamperEvidentLog:\n    return TamperEvidentLog(path)\n
