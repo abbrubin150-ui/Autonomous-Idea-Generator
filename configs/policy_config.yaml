@@ -1,0 +1,10 @@
+# R-Anchor-ish policy constraints (minimal starter)
+policy:
+  allow_untrusted_network: false
+  require_audit_record: true
+  require_exactly_one_action: true
+
+safety:
+  refuse_categories:
+    - "illegal_harm"
+    - "self_harm"

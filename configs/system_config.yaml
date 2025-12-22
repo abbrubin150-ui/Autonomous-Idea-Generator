@@ -1,0 +1,9 @@
+# System-wide configuration
+system:
+  name: autonomous-idea-generator
+  version: 0.1.0
+  log_dir: logs
+
+runtime:
+  fail_closed: true
+  max_idea_tokens: 512
