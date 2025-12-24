@@ -1,5 +1,11 @@
 from agents.base_agent import AgentContext
-from agents.idea_generator_agent import BaseIdeaProvider, Idea, IdeaGeneratorAgent
+from agents.idea_generator_agent import (
+    BaseIdeaProvider,
+    Idea,
+    IdeaGeneratorAgent,
+    LocalModelIdeaProvider,
+    LocalTemplateIdeaProvider,
+)
 
 
 class FakeProvider(BaseIdeaProvider):
@@ -51,3 +57,52 @@ def test_provider_failure():
     assert res["ok"] is False
     assert "boom" in res["error"]
     assert res["provider"] == "failing"
+
+
+def test_local_model_provider_success():
+    ctx = AgentContext(user_id="local-user", session_id="local-session")
+    agent = IdeaGeneratorAgent(
+        provider=LocalModelIdeaProvider(
+            model_path="/models/offline.bin",
+            temperature=0.2,
+            safe_mode=False,
+            max_tokens=128,
+        )
+    )
+
+    res = agent.run("ship a personal knowledge base", ctx)
+
+    assert res["ok"] is True
+    assert res["idea"]["provenance"]["provider"] == "local-model"
+    assert res["idea"]["provenance"]["mode"] == "local-model"
+    assert "/models/offline.bin" in res["idea"]["summary"]
+
+
+def test_local_model_provider_safety_rejection():
+    ctx = AgentContext()
+    agent = IdeaGeneratorAgent(provider=LocalModelIdeaProvider(safe_mode=True))
+
+    res = agent.run("plan a malware attack", ctx)
+
+    assert res["ok"] is False
+    assert "safety filter" in res["error"]
+    assert res["provider"] == "local-model"
+
+
+def test_load_provider_fallback_when_openai_misconfigured(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text(
+        """
+runtime:
+  fail_closed: false
+  max_idea_tokens: 64
+idea_provider:
+  type: openai
+  openai:
+    model: gpt-4o-mini
+        """
+    )
+
+    agent = IdeaGeneratorAgent(config_path=str(cfg))
+
+    assert isinstance(agent.provider, LocalTemplateIdeaProvider)
