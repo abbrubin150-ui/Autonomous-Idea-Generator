@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 from agents.base_agent import AgentContext, BaseAgent
 from agents.idea_generator_agent import IdeaGeneratorAgent
@@ -40,10 +40,8 @@ class SupervisorAgent(BaseAgent):
             )
             return {"ok": False, "error": refusal_reason}
 
-        # 2) EXACT1 decision (minimal): choose exactly one action among {EXECUTE,HOLD,ESCALATE}
-        # For starter, choose configured default action.
-        decision = {act: False for act in self.allowed_actions}
-        decision[self.default_action] = True
+        # 2) EXACT1 decision derived from risk assessment and policy defaults
+        decision, reasoning = self._derive_decision(prompt, ctx)
         if self.policy.get("policy", {}).get("require_exactly_one_action", True):
             ex1 = verify_exact1(decision, allowed=self.allowed_actions)
             if not ex1.ok:
@@ -54,7 +52,15 @@ class SupervisorAgent(BaseAgent):
             verification_reason = "EXACT1 not required by policy"
 
         # 3) Generate idea
-        out = self.idea_agent.run(prompt, ctx)
+        if decision.get("EXECUTE"):
+            out = self.idea_agent.run(prompt, ctx)
+        else:
+            out = {
+                "ok": False,
+                "action": "route",
+                "reason": reasoning,
+                "ctx": ctx.__dict__,
+            }
 
         # 4) Audit log
         self.tamper_log.append(
@@ -62,6 +68,7 @@ class SupervisorAgent(BaseAgent):
             {
                 "prompt": prompt,
                 "decision": decision,
+                "reasoning": reasoning,
                 "verification": verification_reason,
                 "ctx": ctx.__dict__,
             },
@@ -69,8 +76,57 @@ class SupervisorAgent(BaseAgent):
         return {
             "ok": True,
             "result": out,
-            "audit": {"decision": decision, "verification": verification_reason},
+            "audit": {
+                "decision": decision,
+                "reasoning": reasoning,
+                "verification": verification_reason,
+            },
         }
+
+    def _derive_decision(self, prompt: str, ctx: AgentContext) -> Tuple[Dict[str, bool], str]:
+        """Compute action map based on risk signals and policy defaults."""
+
+        risk_level, signals = self._detect_risks(prompt)
+        reasoning: str
+
+        if risk_level == "high":
+            action = "ESCALATE" if "ESCALATE" in self.allowed_actions else "HOLD"
+            reasoning = f"High-risk signals detected: {', '.join(signals)}; routing to human review"
+        elif risk_level == "medium":
+            action = "HOLD" if "HOLD" in self.allowed_actions else self.default_action
+            reasoning = f"Medium-risk signals detected: {', '.join(signals)}; pausing for review"
+        else:
+            action = self.default_action if self.default_action in self.allowed_actions else self.allowed_actions[0]
+            reasoning = "Low-risk prompt; applying policy default action"
+
+        if action not in self.allowed_actions:
+            action = self.allowed_actions[0]
+            reasoning += f"; coerced to allowed action {action}"
+
+        decision = {act: False for act in self.allowed_actions}
+        decision[action] = True
+        return decision, reasoning
+
+    def _detect_risks(self, prompt: str) -> Tuple[str, List[str]]:
+        """Lightweight heuristic risk classifier."""
+
+        lowered = prompt.lower()
+        high_risk_keywords = ["weapon", "exploit", "fraud", "violence", "bioweapon"]
+        medium_risk_keywords = ["confidential", "sensitive", "legal", "medical", "privacy"]
+
+        signals: List[str] = []
+        for kw in high_risk_keywords:
+            if kw in lowered:
+                signals.append(f"high:{kw}")
+        for kw in medium_risk_keywords:
+            if kw in lowered:
+                signals.append(f"medium:{kw}")
+
+        if any(sig.startswith("high:") for sig in signals):
+            return "high", signals
+        if any(sig.startswith("medium:") for sig in signals):
+            return "medium", signals
+        return "low", signals
 
     def _prompt_refused(self, prompt: str) -> str | None:
         prompt_lc = prompt.lower()
