@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 
@@ -25,7 +27,19 @@ def _build_supervisor() -> SupervisorAgent:
 
     log_dir = sys_cfg.get("system", {}).get("log_dir", "logs")
     ensure_dir(log_dir)
-    tlog = TamperEvidentLog(path=f"{log_dir}/tamper_log.jsonl")
+    log_cfg = sys_cfg.get("system", {}).get("tamper_log", {})
+    rotation = log_cfg.get("rotation", {})
+    retention = log_cfg.get("retention", {})
+    archive_dir = retention.get("archive_dir")
+    if archive_dir and not os.path.isabs(archive_dir):
+        archive_dir = os.path.join(log_dir, archive_dir)
+        retention["archive_dir"] = archive_dir
+    if archive_dir:
+        ensure_dir(archive_dir)
+
+    tlog = TamperEvidentLog(
+        path=f"{log_dir}/tamper_log.jsonl", rotation=rotation, retention=retention
+    )
     return SupervisorAgent(policy=pol_cfg, tamper_log=tlog)
 
 

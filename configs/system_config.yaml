@@ -3,6 +3,14 @@ system:
   name: autonomous-idea-generator
   version: 0.1.0
   log_dir: logs
+  tamper_log:
+    rotation:
+      max_bytes: null  # e.g., 1048576 for 1 MiB
+      max_seconds: null  # e.g., 86400 for daily rotation
+    retention:
+      max_segments: null  # keep all by default
+      max_age_seconds: null
+      archive_dir: logs/archive
 
 runtime:
   fail_closed: true
