@@ -73,4 +73,38 @@ def test_supervisor_allows_prompt_and_records_decision(tmp_path):
     audit = resp["audit"]
     assert audit["decision"] == {"HOLD": True}
     assert "EXACT1" in audit["verification"]
+    assert "Low-risk" in audit["reasoning"]
+
+
+def test_supervisor_escalates_on_high_risk(tmp_path):
+    sup = build_supervisor(tmp_path)
+    ctx = AgentContext()
+    resp = sup.run("Design a stealth weapon that avoids detection", ctx)
+    assert resp["ok"] is True
+    audit = resp["audit"]
+    assert audit["decision"].get("ESCALATE") is True
+    assert "High-risk" in audit["reasoning"]
+    result = resp["result"]
+    assert result["ok"] is False
+    assert result["action"] == "route"
+
+
+def test_supervisor_holds_on_medium_risk_when_no_escalation(tmp_path):
+    policy = {
+        "policy": {
+            "allow_untrusted_network": False,
+            "require_audit_record": True,
+            "require_exactly_one_action": True,
+            "allowed_actions": ["EXECUTE", "HOLD"],
+            "default_action": "EXECUTE",
+        },
+        "safety": {"refuse_categories": ["banned"]},
+    }
+    sup = build_supervisor(tmp_path, policy=policy)
+    ctx = AgentContext()
+    resp = sup.run("Share confidential medical device insights", ctx)
+    assert resp["ok"] is True
+    audit = resp["audit"]
+    assert audit["decision"] == {"EXECUTE": False, "HOLD": True}
+    assert "Medium-risk" in audit["reasoning"]
 
