@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from pydantic import BaseModel
 
 from agents.base_agent import AgentContext
 from agents.supervisor_agent import SupervisorAgent
+from api.security import require_api_key, security_responses
 from common.logging.tamper_evident_logger import TamperEvidentLog
 from common.utils.helpers import env, ensure_dir, load_yaml
 
@@ -36,13 +37,21 @@ def health():
     return {"ok": True}
 
 
-@app.post("/generate")
+@app.post(
+    "/generate",
+    dependencies=[Depends(require_api_key)],
+    responses=security_responses(),
+)
 def generate(req: GenerateRequest):
     ctx = AgentContext(user_id=req.user_id or "anonymous", session_id=req.session_id or "local")
     return SUP.run(req.prompt, ctx)
 
 
-@app.get("/audit/verify")
+@app.get(
+    "/audit/verify",
+    dependencies=[Depends(require_api_key)],
+    responses=security_responses(),
+)
 def audit_verify():
     # Quick integrity check for the tamper-evident log
     return {"ok": SUP.tamper_log.verify()}
