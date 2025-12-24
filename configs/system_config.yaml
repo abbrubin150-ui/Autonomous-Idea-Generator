@@ -17,8 +17,12 @@ runtime:
   max_idea_tokens: 512
 
 idea_provider:
-  # type can be "local" or "openai"
+  # type can be "local" (template), "heuristic"/"local-model", or "openai"
   type: local
+  local_model:
+    model_path: "./local_models/idea.bin"
+    temperature: 0.1
+    safe_mode: true
   openai:
     api_key: "set-me-if-using-openai"
     model: gpt-4o-mini
